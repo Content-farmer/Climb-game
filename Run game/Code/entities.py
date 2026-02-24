@@ -3,6 +3,8 @@ import pygame
 import random
 from settings import SCREEN_WIDTH, WHITE, GRAY, YELLOW, BLACK, SPRITES_DIR
 
+SPRITE_SHEET_NAME = "original-49f68d37388b9b1ae5d98fc6fb02c1a5-911357247.jpg"
+
 
 class Collectible:
     def __init__(self, x, y, size, name, color):
@@ -100,16 +102,16 @@ class Player(pygame.sprite.Sprite):
         self.bot_timer = 0
 
         self.sprite_sheet = self._load_sprite_sheet()
+        self.frame_count = 4 if self.sprite_sheet.get_width() % 4 == 0 else 1
         self.image = self._extract_frame(0)
         self.rect = self.image.get_rect(center=(x, y))
 
     def _load_sprite_sheet(self):
-        sprite_sheet_path = os.path.join(SPRITES_DIR, "original-49f68d37388b9b1ae5d98fc6fb02c1a5-911357247.jpg")
-        return pygame.image.load(sprite_sheet_path).convert_alpha()
+        sprite_sheet_path = os.path.join(SPRITES_DIR, SPRITE_SHEET_NAME)
+        return pygame.image.load(sprite_sheet_path).convert()
 
     def _extract_frame(self, frame_index):
-        frame_count = 4
-        frame_width = self.sprite_sheet.get_width() // frame_count
+        frame_width = self.sprite_sheet.get_width() // self.frame_count
         frame_height = self.sprite_sheet.get_height()
         src_rect = pygame.Rect(frame_index * frame_width, 0, frame_width, frame_height)
         frame = self.sprite_sheet.subsurface(src_rect)
@@ -194,5 +196,5 @@ class Player(pygame.sprite.Sprite):
                     self.rect.top = plat.rect.bottom
                     self.vel_y = 0
 
-        frame_index = (pygame.time.get_ticks() // 120) % 4
+        frame_index = (pygame.time.get_ticks() // 120) % self.frame_count
         self.image = self._extract_frame(frame_index)
