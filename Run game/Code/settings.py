@@ -1,4 +1,10 @@
 # settings.py
+import os
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SPRITES_DIR = os.path.join(BASE_DIR, "Sprites")
+MUSIC_DIR = os.path.join(BASE_DIR, "Music")
+HIGHSCORES_PATH = os.path.join(BASE_DIR, "highscores.txt")
 SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 600
 FPS = 60

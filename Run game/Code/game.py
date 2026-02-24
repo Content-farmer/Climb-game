@@ -1,8 +1,8 @@
 # game.py
-import pygame, sys, random, os, textwrap
-from settings import SCREEN_WIDTH, SCREEN_HEIGHT, FPS, PIXELS_PER_METER, collectible_defs, achievement_defs, WHITE, DARK_GRAY, BLACK, YELLOW, LIGHT_GREY
+import pygame, sys, random, os
+from settings import SCREEN_WIDTH, SCREEN_HEIGHT, FPS, PIXELS_PER_METER, collectible_defs, achievement_defs, WHITE, DARK_GRAY, BLACK, YELLOW, LIGHT_GREY, HIGHSCORES_PATH, MUSIC_DIR
 from utils import wrap_text
-from entities import Collectible, Platform, Player
+from entities import Collectible, Player
 # game.py
 from world import Tower  # Instead of importing from entities
 
@@ -23,9 +23,6 @@ class Game:
         self.high_scores = self.load_high_scores()
         self.collected_collectibles = set()   # random collectibles (indices 0-15)
         self.unlocked_achievements = set()      # achievements (indices 0-15)
-        # Keep player color fixed (for the player body) and use crown_color to show the chosen color.
-        self.player_color = WHITE
-        self.crown_color = None
         self.special_mode = False  # False = Normal; True = Harder
         self.collectibles_page = "Random"  # "Random" or "Achievements"
         # Dialog triggers (score thresholds in m mapped to dialog MP3 file names)
@@ -37,7 +34,7 @@ class Game:
         self.death_dialog = "death.mp3"
         # Demo bot for menu background:
         self.demo_tower = Tower(SCREEN_HEIGHT - 50, special_mode=False)
-        self.demo_bot = Player(SCREEN_WIDTH//2, SCREEN_HEIGHT - 100, color=self.player_color, is_bot=True)
+        self.demo_bot = Player(SCREEN_WIDTH//2, SCREEN_HEIGHT - 100, is_bot=True)
 
     @property
     def all_music(self):
@@ -47,15 +44,15 @@ class Game:
         self._all_music = value
 
     def load_high_scores(self):
-        if os.path.exists("highscores.txt"):
-            with open("highscores.txt", "r") as f:
+        if os.path.exists(HIGHSCORES_PATH):
+            with open(HIGHSCORES_PATH, "r") as f:
                 scores = [float(line.strip()) for line in f.readlines()]
             scores.sort(reverse=True)
             return scores[:5]
         else:
             return []
     def save_high_scores(self):
-        with open("highscores.txt", "w") as f:
+        with open(HIGHSCORES_PATH, "w") as f:
             for score in self.high_scores:
                 f.write(f"{score}\n")
     def run(self):
@@ -88,7 +85,7 @@ class Game:
             self.screen.fill(DARK_GRAY)
             for plat in self.demo_tower.platforms:
                 plat.draw(self.screen, self.font, camera_offset)
-            pygame.draw.rect(self.screen, self.player_color, self.demo_bot.rect.move(0, -camera_offset))
+            self.screen.blit(self.demo_bot.image, self.demo_bot.get_draw_rect(camera_offset))
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit(); sys.exit()
@@ -183,7 +180,7 @@ class Game:
                             self.current_music = None
                         else:
                             track_num = choice.split()[-1]
-                            filename = os.path.join("Music", f"music_{track_num}.mp3")
+                            filename = os.path.join(MUSIC_DIR, f"music_{track_num}.mp3")
                             try:
                                 pygame.mixer.music.load(filename)
                                 pygame.mixer.music.play(-1)
@@ -290,19 +287,7 @@ class Game:
                     elif event.key == pygame.K_RIGHT:
                         sel_col = (sel_col + 1) % grid_cols
                     elif event.key == pygame.K_RETURN:
-                        idx = sel_row * grid_cols + sel_col
-                        if page == "Random":
-                            if idx in self.collected_collectibles:
-                                self.crown_color = collectible_defs[idx][1]
-                                message = f"Crown color set to {collectible_defs[idx][0]}"
-                            else:
-                                message = "You don't have that collectible yet!"
-                        else:
-                            if idx in self.unlocked_achievements:
-                                self.crown_color = achievement_defs[idx][1]
-                                message = f"Crown color set to {achievement_defs[idx][0]}"
-                            else:
-                                message = "You haven't unlocked that achievement yet!"
+                        message = "Color changing is disabled."
                         message_timer = pygame.time.get_ticks()
                     elif event.key == pygame.K_ESCAPE:
                         running = False
@@ -370,7 +355,7 @@ class Game:
     def gameplay_loop(self):
         start_y = SCREEN_HEIGHT - 50
         new_start_y = start_y  # No checkpoints now.
-        player = Player(SCREEN_WIDTH//2, new_start_y - (37//2), color=self.player_color)
+        player = Player(SCREEN_WIDTH//2, new_start_y - (37//2))
         tower = Tower(new_start_y, special_mode=self.special_mode)
         score = 0.0
         max_height = player.rect.y
@@ -384,9 +369,7 @@ class Game:
                 if event.type == pygame.QUIT:
                     pygame.quit(); sys.exit()
                 elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_SPACE:
-                        player.jump_buffer_time = pygame.time.get_ticks()
-                    elif event.key == pygame.K_ESCAPE:
+                    if event.key == pygame.K_ESCAPE:
                         pause_choice = self.pause_loop()
                         if pause_choice == "quit":
                             self.state = "MENU"
@@ -445,15 +428,8 @@ class Game:
                 plat.draw(self.screen, self.font, camera_offset_y)
             for col in spawned_collectibles:
                 col.draw(self.screen, camera_offset_y)
-            # Draw player (fixed color) then crown above:
-            adj_player = pygame.Rect(player.rect.x, player.rect.y - camera_offset_y, player.width, player.height)
-            pygame.draw.rect(self.screen, self.player_color, adj_player)
-            if self.crown_color:
-                crown_height = 10
-                crown_points = [(adj_player.centerx, adj_player.top - crown_height),
-                                (adj_player.left, adj_player.top),
-                                (adj_player.right, adj_player.top)]
-                pygame.draw.polygon(self.screen, self.crown_color, crown_points)
+            draw_rect = player.get_draw_rect(camera_offset_y)
+            self.screen.blit(player.image, draw_rect)
             score_text = self.font.render(f"Height: {score:.1f} m", True, WHITE)
             self.screen.blit(score_text, (10, 10))
             pygame.display.flip()
