@@ -1,8 +1,8 @@
 # game.py
-import pygame, sys, random, os, textwrap
+import pygame, sys, random, os
 from settings import SCREEN_WIDTH, SCREEN_HEIGHT, FPS, PIXELS_PER_METER, collectible_defs, achievement_defs, WHITE, DARK_GRAY, BLACK, YELLOW, LIGHT_GREY, HIGHSCORES_PATH, MUSIC_DIR
 from utils import wrap_text
-from entities import Collectible, Platform, Player
+from entities import Collectible, Player
 # game.py
 from world import Tower  # Instead of importing from entities
 
