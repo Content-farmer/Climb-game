@@ -23,9 +23,7 @@ class Game:
         self.high_scores = self.load_high_scores()
         self.collected_collectibles = set()   # random collectibles (indices 0-15)
         self.unlocked_achievements = set()      # achievements (indices 0-15)
-        # Keep player color fixed (for the player body) and use crown_color to show the chosen color.
         self.player_color = WHITE
-        self.crown_color = None
         self.special_mode = False  # False = Normal; True = Harder
         self.collectibles_page = "Random"  # "Random" or "Achievements"
         # Dialog triggers (score thresholds in m mapped to dialog MP3 file names)
@@ -88,7 +86,7 @@ class Game:
             self.screen.fill(DARK_GRAY)
             for plat in self.demo_tower.platforms:
                 plat.draw(self.screen, self.font, camera_offset)
-            self.screen.blit(self.demo_bot.image, self.demo_bot.rect.move(0, -camera_offset))
+            self.demo_bot.draw(self.screen, camera_offset)
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit(); sys.exit()
@@ -292,17 +290,9 @@ class Game:
                     elif event.key == pygame.K_RETURN:
                         idx = sel_row * grid_cols + sel_col
                         if page == "Random":
-                            if idx in self.collected_collectibles:
-                                self.crown_color = collectible_defs[idx][1]
-                                message = f"Crown color set to {collectible_defs[idx][0]}"
-                            else:
-                                message = "You don't have that collectible yet!"
+                            message = collectible_defs[idx][0] if idx in self.collected_collectibles else "You don't have that collectible yet!"
                         else:
-                            if idx in self.unlocked_achievements:
-                                self.crown_color = achievement_defs[idx][1]
-                                message = f"Crown color set to {achievement_defs[idx][0]}"
-                            else:
-                                message = "You haven't unlocked that achievement yet!"
+                            message = achievement_defs[idx][0] if idx in self.unlocked_achievements else "You haven't unlocked that achievement yet!"
                         message_timer = pygame.time.get_ticks()
                     elif event.key == pygame.K_ESCAPE:
                         running = False
@@ -384,9 +374,7 @@ class Game:
                 if event.type == pygame.QUIT:
                     pygame.quit(); sys.exit()
                 elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_SPACE:
-                        player.jump_buffer_time = pygame.time.get_ticks()
-                    elif event.key == pygame.K_ESCAPE:
+                    if event.key == pygame.K_ESCAPE:
                         pause_choice = self.pause_loop()
                         if pause_choice == "quit":
                             self.state = "MENU"
@@ -445,15 +433,7 @@ class Game:
                 plat.draw(self.screen, self.font, camera_offset_y)
             for col in spawned_collectibles:
                 col.draw(self.screen, camera_offset_y)
-            # Draw player (fixed color) then crown above:
-            adj_player = player.rect.move(0, -camera_offset_y)
-            self.screen.blit(player.image, adj_player)
-            if self.crown_color:
-                crown_height = 10
-                crown_points = [(adj_player.centerx, adj_player.top - crown_height),
-                                (adj_player.left, adj_player.top),
-                                (adj_player.right, adj_player.top)]
-                pygame.draw.polygon(self.screen, self.crown_color, crown_points)
+            player.draw(self.screen, camera_offset_y)
             score_text = self.font.render(f"Height: {score:.1f} m", True, WHITE)
             self.screen.blit(score_text, (10, 10))
             pygame.display.flip()
