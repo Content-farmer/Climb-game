@@ -1,9 +1,3 @@
- (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
-diff --git a/Run game/Code/entities.py b/Run game/Code/entities.py
-index 5635d83a4a42e57e88bd0fab090c03086d039c09..3dd3d2216aaed95a2a5f116023c626ff1ee0546c 100644
---- a/Run game/Code/entities.py	
-+++ b/Run game/Code/entities.py	
-@@ -1,192 +1,198 @@
 -import pygame
 -import random
 -from settings import SCREEN_WIDTH, SCREEN_HEIGHT, PIXELS_PER_METER, WHITE, GRAY, YELLOW, BLACK, LIGHT_GREY
@@ -397,3 +391,4 @@ index 5635d83a4a42e57e88bd0fab090c03086d039c09..3dd3d2216aaed95a2a5f116023c626ff
  
 
 )
+
