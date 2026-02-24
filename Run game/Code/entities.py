@@ -3,7 +3,16 @@ import pygame
 import random
 from settings import SCREEN_WIDTH, WHITE, GRAY, YELLOW, BLACK, SPRITES_DIR
 
-SPRITE_SHEET_NAME = "original-49f68d37388b9b1ae5d98fc6fb02c1a5-911357247.jpg"
+SPRITE_FILES = {
+    "idle": "Idle.png",
+    "run": "Run.png",
+    "jump": "Jump.png",
+}
+SPRITE_FRAME_COUNTS = {
+    "idle": 8,
+    "run": 10,
+    "jump": 10,
+}
 
 
 class Collectible:
@@ -91,6 +100,8 @@ class Player(pygame.sprite.Sprite):
         self.speed = 5
         self.jump_strength = -15
         self.on_ground = False
+        self.coyote_time_ms = 120
+        self.last_grounded_time = 0
 
         self.dashing = False
         self.dash_duration_ms = 160
@@ -101,34 +112,50 @@ class Player(pygame.sprite.Sprite):
         self.facing_right = True
         self.bot_timer = 0
 
-        self.sprite_sheet = self._load_sprite_sheet()
-        self.frame_count = 4 if self.sprite_sheet.get_width() % 4 == 0 else 1
-        self.image = self._extract_frame(0)
-        self.rect = self.image.get_rect(center=(x, y))
+        # Keep the collision cube, but render only sprite art.
+        self.rect = pygame.Rect(0, 0, self.width, self.height)
+        self.rect.midbottom = (x, y)
 
-    def _load_sprite_sheet(self):
-        sprite_sheet_path = os.path.join(SPRITES_DIR, SPRITE_SHEET_NAME)
-        return pygame.image.load(sprite_sheet_path).convert()
+        self.sprite_draw_width = int(self.width * 1.6)
+        self.sprite_draw_height = int(self.height * 1.8)
+        self.sprite_frames = self._load_sprite_frames()
+        self.anim_fps = {"idle": 8, "run": 12, "jump": 8}
+        self.current_state = "idle"
+        self.image = self.sprite_frames["idle"][0]
 
-    def _extract_frame(self, frame_index):
-        frame_width = self.sprite_sheet.get_width() // self.frame_count
-        frame_height = self.sprite_sheet.get_height()
-        src_rect = pygame.Rect(frame_index * frame_width, 0, frame_width, frame_height)
-        frame = self.sprite_sheet.subsurface(src_rect)
-        frame = pygame.transform.smoothscale(frame, (self.width, self.height))
-        if not self.facing_right:
-            frame = pygame.transform.flip(frame, True, False)
-        return frame
+    def _load_sprite_frames(self):
+        frames = {}
+        for state, filename in SPRITE_FILES.items():
+            sprite_path = os.path.join(SPRITES_DIR, filename)
+            sheet = pygame.image.load(sprite_path).convert_alpha()
+            frame_count = SPRITE_FRAME_COUNTS[state]
+            state_frames = []
+            for i in range(frame_count):
+                start_x = round((i / frame_count) * sheet.get_width())
+                end_x = round(((i + 1) / frame_count) * sheet.get_width())
+                frame_width = max(1, end_x - start_x)
+                src_rect = pygame.Rect(start_x, 0, frame_width, sheet.get_height())
+                frame = pygame.Surface((frame_width, sheet.get_height()), pygame.SRCALPHA)
+                frame.blit(sheet, (0, 0), src_rect)
+                scaled = pygame.transform.smoothscale(frame, (self.sprite_draw_width, self.sprite_draw_height))
+                state_frames.append(scaled)
+            frames[state] = state_frames
+        return frames
 
     def apply_gravity(self):
         self.vel_y += 0.8
         if self.vel_y > 10:
             self.vel_y = 10
 
+    def can_jump(self):
+        now = pygame.time.get_ticks()
+        return self.on_ground or (now - self.last_grounded_time <= self.coyote_time_ms)
+
     def jump(self):
-        if self.on_ground:
+        if self.can_jump():
             self.vel_y = self.jump_strength
             self.on_ground = False
+            self.last_grounded_time = 0
 
     def dash(self):
         if not self.dashing:
@@ -170,6 +197,30 @@ class Player(pygame.sprite.Sprite):
         if keys[pygame.K_SPACE]:
             self.jump()
 
+    def _update_animation(self):
+        if not self.on_ground:
+            self.current_state = "jump"
+        elif abs(self.vel_x) > 0:
+            self.current_state = "run"
+        else:
+            self.current_state = "idle"
+
+        frames = self.sprite_frames[self.current_state]
+        elapsed_ms = pygame.time.get_ticks()
+        frame_index = (elapsed_ms * self.anim_fps[self.current_state] // 1000) % len(frames)
+        frame = frames[frame_index]
+        if not self.facing_right:
+            frame = pygame.transform.flip(frame, True, False)
+        self.image = frame
+
+    def get_draw_rect(self, camera_offset_y):
+        draw_rect = self.image.get_rect()
+        draw_rect.midbottom = (self.rect.centerx, self.rect.bottom - camera_offset_y)
+        return draw_rect
+
+    def draw(self, surface, camera_offset_y):
+        surface.blit(self.image, self.get_draw_rect(camera_offset_y))
+
     def update(self, platforms, keys=None):
         self.handle_input()
 
@@ -192,9 +243,9 @@ class Player(pygame.sprite.Sprite):
                     self.rect.bottom = plat.rect.top
                     self.vel_y = 0
                     self.on_ground = True
+                    self.last_grounded_time = pygame.time.get_ticks()
                 elif self.vel_y < 0 and (plat.rect.bottom - self.rect.top) < 20:
                     self.rect.top = plat.rect.bottom
                     self.vel_y = 0
 
-        frame_index = (pygame.time.get_ticks() // 120) % self.frame_count
-        self.image = self._extract_frame(frame_index)
+        self._update_animation()
