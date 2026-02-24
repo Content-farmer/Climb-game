@@ -1,4 +1,10 @@
-
+ (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
+diff --git a/Run game/Code/settings.py b/Run game/Code/settings.py
+index 7e291449fe37c33a940707a974ccc71ac22c071a..9945cfcf3fdcdccfebae8364fbe27f54f7da134d 100644
+--- a/Run game/Code/settings.py	
++++ b/Run game/Code/settings.py	
+@@ -1,29 +1,35 @@
+-# settings.py
 +# settings.py
 +import os
 +
