@@ -1,20 +1,15 @@
- (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
-diff --git a/Run game/Code/settings.py b/Run game/Code/settings.py
-index 7e291449fe37c33a940707a974ccc71ac22c071a..9945cfcf3fdcdccfebae8364fbe27f54f7da134d 100644
---- a/Run game/Code/settings.py	
-+++ b/Run game/Code/settings.py	
-@@ -1,29 +1,35 @@
--# settings.py
-+# settings.py
-+import os
-+
-+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-+SPRITES_DIR = os.path.join(BASE_DIR, "Sprites")
-+MUSIC_DIR = os.path.join(BASE_DIR, "Music")
-+HIGHSCORES_PATH = os.path.join(BASE_DIR, "highscores.txt")
+
+
+# settings.py
+import os
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SPRITES_DIR = os.path.join(BASE_DIR, "Sprites")
+MUSIC_DIR = os.path.join(BASE_DIR, "Music")
+HIGHSCORES_PATH = os.path.join(BASE_DIR, "highscores.txt")
  SCREEN_WIDTH = 800
  SCREEN_HEIGHT = 600
--FPS = 60
+
 +FPS = 60
  
  # Colors
@@ -42,5 +37,6 @@ index 7e291449fe37c33a940707a974ccc71ac22c071a..9945cfcf3fdcdccfebae8364fbe27f54
      ("Brown", (165, 42, 42, 200)),
      ("Teal", (0, 128, 128, 200)),
  
-EOF
+
 )
+
