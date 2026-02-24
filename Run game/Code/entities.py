@@ -83,25 +83,14 @@ class Player(pygame.sprite.Sprite):
         super().__init__()
         self.width = 40
         self.height = 40
-        self.visual_width = 56
-        self.visual_height = 56
         self.color = color
         self.is_bot = is_bot
-
-        self.rect = pygame.Rect(0, 0, self.width, self.height)
-        self.rect.center = (x, y)
 
         self.vel_x = 0
         self.vel_y = 0
         self.speed = 5
         self.jump_strength = -15
         self.on_ground = False
-
-        self.coyote_time_ms = 120
-        self.jump_buffer_ms = 120
-        self.last_grounded_time = 0
-        self.jump_buffer_until = 0
-        self.prev_jump_pressed = False
 
         self.dashing = False
         self.dash_duration_ms = 160
@@ -112,75 +101,34 @@ class Player(pygame.sprite.Sprite):
         self.facing_right = True
         self.bot_timer = 0
 
-        self.animations = self._load_animations()
-        self.current_anim = "idle"
-        self.anim_frame = 0
-        self.anim_timer = 0
-        self.anim_rate_ms = {"idle": 120, "run": 80, "jump": 140}
+        self.sprite_sheet = self._load_sprite_sheet()
+        self.frame_count = 4 if self.sprite_sheet.get_width() % 4 == 0 else 1
+        self.image = self._extract_frame(0)
+        self.rect = self.image.get_rect(center=(x, y))
 
-        self.image = self.animations["idle"][0]
-
-    def _load_animations(self):
-        idle = self._load_named_animation("Idle")
-        run = self._load_named_animation("Run")
-        jump = self._load_named_animation("Jump")
-
-        if idle is None or run is None or jump is None:
-            fallback = self._load_legacy_strip()
-            idle = idle or fallback
-            run = run or fallback
-            jump = jump or fallback
-
-        return {"idle": idle, "run": run, "jump": jump}
-
-    def _load_named_animation(self, base_name):
-        candidates = [
-            f"{base_name}.png", f"{base_name}.jpg", f"{base_name}.jpeg",
-            f"{base_name.lower()}.png", f"{base_name.lower()}.jpg", f"{base_name.lower()}.jpeg",
-        ]
-        for filename in candidates:
-            path = os.path.join(SPRITES_DIR, filename)
-            if os.path.exists(path):
-                sheet = pygame.image.load(path).convert_alpha()
-                return self._split_strip(sheet)
-        return None
-
-    def _load_legacy_strip(self):
+    def _load_sprite_sheet(self):
         sprite_sheet_path = os.path.join(SPRITES_DIR, SPRITE_SHEET_NAME)
-        sheet = pygame.image.load(sprite_sheet_path).convert()
-        frames = self._split_strip(sheet)
-        return frames
+        return pygame.image.load(sprite_sheet_path).convert()
 
-    def _split_strip(self, sheet):
-        width, height = sheet.get_size()
-        if height == 0:
-            return [pygame.Surface((self.visual_width, self.visual_height), pygame.SRCALPHA)]
+    def _extract_frame(self, frame_index):
+        frame_width = self.sprite_sheet.get_width() // self.frame_count
+        frame_height = self.sprite_sheet.get_height()
+        src_rect = pygame.Rect(frame_index * frame_width, 0, frame_width, frame_height)
+        frame = self.sprite_sheet.subsurface(src_rect)
+        frame = pygame.transform.smoothscale(frame, (self.width, self.height))
+        if not self.facing_right:
+            frame = pygame.transform.flip(frame, True, False)
+        return frame
 
-        if width % height == 0 and width // height > 0:
-            frame_count = width // height
-            frame_width = height
-        else:
-            frame_count = 4 if width % 4 == 0 else 1
-            frame_width = width // frame_count
+    def apply_gravity(self):
+        self.vel_y += 0.8
+        if self.vel_y > 10:
+            self.vel_y = 10
 
-        frames = []
-        for i in range(frame_count):
-            src = pygame.Rect(i * frame_width, 0, frame_width, height)
-            frame = sheet.subsurface(src)
-            frame = pygame.transform.smoothscale(frame, (self.visual_width, self.visual_height))
-            frames.append(frame)
-        return frames
-
-    def _set_jump_buffer(self):
-        self.jump_buffer_until = pygame.time.get_ticks() + self.jump_buffer_ms
-
-    def _consume_jump_if_available(self):
-        now = pygame.time.get_ticks()
-        can_jump = self.on_ground or (now - self.last_grounded_time <= self.coyote_time_ms)
-        if self.jump_buffer_until >= now and can_jump:
+    def jump(self):
+        if self.on_ground:
             self.vel_y = self.jump_strength
             self.on_ground = False
-            self.jump_buffer_until = 0
 
     def dash(self):
         if not self.dashing:
@@ -203,15 +151,10 @@ class Player(pygame.sprite.Sprite):
             elif self.rect.left < 10:
                 self.vel_x = self.speed
             if self.on_ground and random.random() < 0.03:
-                self._set_jump_buffer()
+                self.jump()
             return
 
         keys = pygame.key.get_pressed()
-        jump_pressed = keys[pygame.K_SPACE]
-        if jump_pressed and not self.prev_jump_pressed:
-            self._set_jump_buffer()
-        self.prev_jump_pressed = jump_pressed
-
         if keys[pygame.K_k] and not self.dashing:
             self.dash()
 
@@ -224,10 +167,8 @@ class Player(pygame.sprite.Sprite):
         elif not self.dashing:
             self.vel_x = 0
 
-    def apply_gravity(self):
-        self.vel_y += 0.8
-        if self.vel_y > 10:
-            self.vel_y = 10
+        if keys[pygame.K_SPACE]:
+            self.jump()
 
     def update(self, platforms, keys=None):
         self.handle_input()
@@ -255,38 +196,5 @@ class Player(pygame.sprite.Sprite):
                     self.rect.top = plat.rect.bottom
                     self.vel_y = 0
 
-        now = pygame.time.get_ticks()
-        if self.on_ground:
-            self.last_grounded_time = now
-
-        self._consume_jump_if_available()
-        self._update_animation(now)
-
-    def _update_animation(self, now):
-        if not self.on_ground:
-            target = "jump"
-        elif abs(self.vel_x) > 0:
-            target = "run"
-        else:
-            target = "idle"
-
-        if target != self.current_anim:
-            self.current_anim = target
-            self.anim_frame = 0
-            self.anim_timer = now
-
-        frames = self.animations[self.current_anim]
-        frame_delay = self.anim_rate_ms[self.current_anim]
-        if now - self.anim_timer >= frame_delay:
-            self.anim_frame = (self.anim_frame + 1) % len(frames)
-            self.anim_timer = now
-
-        frame = frames[self.anim_frame]
-        if not self.facing_right:
-            frame = pygame.transform.flip(frame, True, False)
-        self.image = frame
-
-    def get_draw_rect(self, camera_offset_y=0):
-        draw_rect = self.image.get_rect()
-        draw_rect.midbottom = (self.rect.centerx, self.rect.bottom - camera_offset_y)
-        return draw_rect
+        frame_index = (pygame.time.get_ticks() // 120) % self.frame_count
+        self.image = self._extract_frame(frame_index)
